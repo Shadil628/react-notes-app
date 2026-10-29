@@ -1,74 +1,78 @@
 
 import { useState } from 'react'
+import { useNotes } from './context/NotesContext'
 
 function App() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [color, setColor] = useState('#ffffff')
-  const [notes, setNotes] = useState([])
+  const {
+  notes,
+  loading,
+  error,
+  createNote,
+  updateNote,
+  deleteNote: removeNote,
+} = useNotes()
   const [editingId, setEditingId] = useState(null)
 
   // Create or update a note
-  function addNote(event) {
-    event.preventDefault()
+  async function addNote(event) {
+  event.preventDefault()
 
-    const cleanTitle = title.trim()
-    const cleanContent = content.trim()
+  const cleanTitle = title.trim()
+  const cleanContent = content.trim()
 
-    if (!cleanContent) {
-      alert('Please enter note content.')
-      return
-    }
+  if (!cleanContent) {
+    alert('Please enter note content.')
+    return
+  }
 
-    if (cleanTitle.length > 100) {
-      alert('Title cannot exceed 100 characters.')
-      return
-    }
+  if (cleanTitle.length > 100) {
+    alert('Title cannot exceed 100 characters.')
+    return
+  }
 
-    // Prevent duplicate notes
-    const duplicate = notes.some(
-      note =>
-        note.id !== editingId &&
-        note.title.toLowerCase() === cleanTitle.toLowerCase() &&
-        note.content.toLowerCase() === cleanContent.toLowerCase()
-    )
+  const duplicate = notes.some(
+    note =>
+      String(note.id) !== String(editingId) &&
+      note.title.toLowerCase() === cleanTitle.toLowerCase() &&
+      note.content.toLowerCase() === cleanContent.toLowerCase()
+  )
 
-    if (duplicate) {
-      alert('This note already exists.')
-      return
-    }
+  if (duplicate) {
+    alert('This note already exists.')
+    return
+  }
 
+  const now = new Date().toISOString()
+
+  try {
     if (editingId !== null) {
-      // Update existing note
-      setNotes(previousNotes =>
-        previousNotes.map(note =>
-          note.id === editingId
-            ? {
-                ...note,
-                title: cleanTitle,
-                content: cleanContent,
-                color: color,
-                updatedAt: Date.now(),
-              }
-            : note
-        )
-      )
-    } else {
-      // Create new note
-      const newNote = {
-        id: crypto.randomUUID(),
+      await updateNote(editingId, {
         title: cleanTitle,
         content: cleanContent,
-        color: color,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }
-
-      setNotes(previousNotes => [...previousNotes, newNote])
+        color,
+        updatedAt: now,
+      })
+    } else {
+      await createNote({
+        title: cleanTitle,
+        content: cleanContent,
+        color,
+        tags: [],
+        archived: false,
+        stock: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
     }
 
     resetForm()
+  } catch {
+    alert('Could not save note. Check whether JSON Server is running.')
   }
+}
 
   // Clear the form
   function resetForm() {
@@ -92,21 +96,23 @@ function App() {
   }
 
   // Delete a note after confirmation
-  function deleteNote(id) {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this note?'
-    )
+  async function deleteNote(id) {
+  const confirmed = window.confirm(
+    'Are you sure you want to delete this note?'
+  )
 
-    if (confirmed) {
-      setNotes(previousNotes =>
-        previousNotes.filter(note => note.id !== id)
-      )
+  if (!confirmed) return
 
-      if (editingId === id) {
-        resetForm()
-      }
+  try {
+    await removeNote(id)
+
+    if (String(editingId) === String(id)) {
+      resetForm()
     }
+  } catch {
+    alert('Could not delete note. Please try again.')
   }
+}
 
   return (
     <main className="min-h-screen bg-amber-50 px-4 py-8 sm:px-8">
@@ -283,4 +289,4 @@ function App() {
   )
 }
 
-export default App
+export default App;
